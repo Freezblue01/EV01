@@ -4,7 +4,7 @@
 export const CONFIG = {
   // Clé Google Maps JavaScript API. Elle est publique par nature : la sécurité vient de la
   // restriction par référent HTTP configurée dans Google Cloud (voir README, étape 1).
-  GOOGLE_MAPS_API_KEY: 'VOTRE_CLE_API_GOOGLE_MAPS',
+  GOOGLE_MAPS_API_KEY: 'AIzaSyAhH84UJ8ODakVT05IczeJ9lMqjuqLaMMU',
 
   // Map ID, nécessaire aux marqueurs avancés (déplaçables). 'DEMO_MAP_ID' fonctionne pour démarrer ;
   // pour la production, créez votre propre Map ID dans Google Cloud > Google Maps Platform > Gestion des cartes.
