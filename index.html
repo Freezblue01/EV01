@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mes trajets – Enquête mobilité</title>
+  <meta name="description" content="Déclarez vos trajets du quotidien : itinéraire, mode de transport, durée et estimation des émissions de CO₂.">
+  <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1513" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body data-view="declare">
+  <a class="skip-link" href="#panel">Aller au formulaire</a>
+
+  <header class="app-header">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="32" height="32">
+      <h1>Mes trajets</h1>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" id="tab-declare" aria-controls="view-declare" aria-selected="true">Déclarer</button>
+      <button type="button" role="tab" id="tab-history" aria-controls="view-history" aria-selected="false" tabindex="-1">
+        Mes trajets <span class="tab-count" id="history-count" hidden></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" role="alert" hidden></div>
+
+  <div class="layout" id="layout" data-step="1">
+    <!-- Carte : en haut sur mobile (étape 1 uniquement), à gauche sur bureau -->
+    <section class="map-pane" id="map-pane" aria-label="Carte de l'itinéraire">
+      <div id="map" class="map"></div>
+      <p class="map-hint" id="map-hint">Touchez la carte pour placer le départ, puis l'arrivée.</p>
+      <div class="map-loading" id="map-loading" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Calcul de l'itinéraire…</span>
+      </div>
+      <div class="map-fallback" id="map-fallback" hidden>
+        <p><strong>Carte indisponible.</strong> Saisissez les adresses, puis la distance et la durée à la main.</p>
+      </div>
+    </section>
+
+    <main class="panel" id="panel" tabindex="-1">
+      <!-- ============ Onglet « Déclarer » ============ -->
+      <div id="view-declare" role="tabpanel" aria-labelledby="tab-declare">
+        <div class="progress" id="progress" role="progressbar" aria-label="Progression"
+             aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" aria-valuetext="Étape 1 sur 3 : Trajet">
+          <ol class="progress-steps">
+            <li data-step="1" class="is-current">Trajet</li>
+            <li data-step="2">Détails</li>
+            <li data-step="3">Envoi</li>
+          </ol>
+          <div class="progress-bar"><span id="progress-fill"></span></div>
+        </div>
+
+        <form id="trip-form" novalidate>
+          <!-- ---------- Étape 1 : trajet ---------- -->
+          <section class="step" data-step="1" aria-labelledby="step1-title">
+            <h2 id="step1-title" tabindex="-1"><span class="step-num" aria-hidden="true">1</span> Trajet</h2>
+
+            <div class="field">
+              <label for="depart">Départ <span class="req" aria-hidden="true">*</span></label>
+              <div class="input-row">
+                <div class="ac">
+                  <input id="depart" name="depart" type="text" autocomplete="off" required
+                         maxlength="300" placeholder="Adresse, lieu, gare…" aria-describedby="depart-error">
+                </div>
+                <button type="button" class="btn-icon" id="btn-locate" aria-label="Utiliser ma position comme départ" title="Ma position">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" fill="none"/></svg>
+                </button>
+              </div>
+              <p class="error" id="depart-error"></p>
+            </div>
+
+            <div id="waypoints" class="waypoints"></div>
+            <button type="button" class="btn-link" id="btn-add-waypoint">+ Ajouter une étape</button>
+
+            <div class="field">
+              <label for="arrivee">Arrivée <span class="req" aria-hidden="true">*</span></label>
+              <div class="input-row">
+                <div class="ac">
+                  <input id="arrivee" name="arrivee" type="text" autocomplete="off" required
+                         maxlength="300" placeholder="Adresse, lieu, gare…" aria-describedby="arrivee-error">
+                </div>
+                <button type="button" class="btn-icon" id="btn-swap" aria-label="Inverser départ et arrivée" title="Inverser">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M7 4 3 8M7 4l4 4M17 20V4M17 20l-4-4M17 20l4-4"/></svg>
+                </button>
+              </div>
+              <p class="error" id="arrivee-error"></p>
+            </div>
+
+            <div class="row-between">
+              <label class="check">
+                <input type="checkbox" id="restrict-country" checked>
+                <span id="restrict-country-label">Rechercher en France uniquement</span>
+              </label>
+              <button type="button" class="btn-link" id="btn-clear-route">Effacer le tracé</button>
+            </div>
+
+            <fieldset class="field" id="mode-fieldset" aria-describedby="mode-error">
+              <legend>Mode de transport principal <span class="req" aria-hidden="true">*</span></legend>
+              <div class="tiles" id="mode-tiles"></div>
+              <p class="error" id="mode-error"></p>
+            </fieldset>
+
+            <div class="field" id="passagers-field" hidden>
+              <label for="passagers">Personnes dans le véhicule (conducteur compris) <span class="req" aria-hidden="true">*</span></label>
+              <div class="stepper">
+                <button type="button" class="btn-icon" data-step-passengers="-1" aria-label="Une personne de moins">−</button>
+                <input id="passagers" name="passagers" type="number" inputmode="numeric" min="1" max="9" step="1" value="1"
+                       aria-describedby="passagers-hint passagers-error">
+                <button type="button" class="btn-icon" data-step-passengers="1" aria-label="Une personne de plus">+</button>
+              </div>
+              <p class="hint" id="passagers-hint">Les émissions de CO₂ sont partagées entre les occupants.</p>
+              <p class="error" id="passagers-error"></p>
+            </div>
+
+            <p class="route-status" id="route-status" role="status" aria-live="polite"></p>
+
+            <fieldset class="field routes-fieldset" id="routes-fieldset" hidden>
+              <legend>Itinéraire réellement emprunté</legend>
+              <div class="routes" id="routes-list"></div>
+            </fieldset>
+          </section>
+
+          <!-- ---------- Étape 2 : détails ---------- -->
+          <section class="step" data-step="2" aria-labelledby="step2-title">
+            <h2 id="step2-title" tabindex="-1"><span class="step-num" aria-hidden="true">2</span> Détails</h2>
+
+            <div class="field">
+              <label for="utilisateur">Identifiant ou pseudo <span class="req" aria-hidden="true">*</span></label>
+              <input id="utilisateur" name="utilisateur" type="text" autocomplete="nickname" maxlength="60" required
+                     aria-describedby="utilisateur-hint utilisateur-error">
+              <p class="hint" id="utilisateur-hint">Mémorisé sur cet appareil pour vos prochaines saisies.</p>
+              <p class="error" id="utilisateur-error"></p>
+            </div>
+
+            <div class="grid-2">
+              <div class="field">
+                <label for="date">Date du trajet <span class="req" aria-hidden="true">*</span></label>
+                <input id="date" name="date" type="date" required aria-describedby="date-error">
+                <p class="error" id="date-error"></p>
+              </div>
+              <div class="field">
+                <label for="heure">Heure de départ <span class="req" aria-hidden="true">*</span></label>
+                <input id="heure" name="heure" type="time" required aria-describedby="heure-error">
+                <p class="error" id="heure-error"></p>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="field">
+                <label for="distance">
+                  Distance (km) <span class="req" aria-hidden="true">*</span>
+                  <span class="modified" id="distance-modified" hidden title="Valeur modifiée à la main">✎ modifiée</span>
+                </label>
+                <div class="input-row">
+                  <input id="distance" name="distance" type="number" inputmode="decimal" min="0.1" max="2000" step="0.1" required
+                         aria-describedby="distance-hint distance-error">
+                  <button type="button" class="btn-icon btn-reset" id="distance-reset" hidden
+                          aria-label="Revenir à la distance calculée" title="Revenir à la valeur calculée">↺</button>
+                </div>
+                <p class="hint" id="distance-hint">Calculée depuis la carte, modifiable.</p>
+                <p class="error" id="distance-error"></p>
+              </div>
+              <div class="field">
+                <label for="duree">
+                  Durée réelle (min) <span class="req" aria-hidden="true">*</span>
+                  <span class="modified" id="duree-modified" hidden title="Valeur modifiée à la main">✎ modifiée</span>
+                </label>
+                <div class="input-row">
+                  <input id="duree" name="duree" type="number" inputmode="numeric" min="1" max="1440" step="1" required
+                         aria-describedby="duree-hint duree-error">
+                  <button type="button" class="btn-icon btn-reset" id="duree-reset" hidden
+                          aria-label="Revenir à la durée estimée" title="Revenir à la valeur estimée">↺</button>
+                </div>
+                <p class="hint" id="duree-hint">Estimation de la carte, à ajuster.</p>
+                <p class="error" id="duree-error"></p>
+              </div>
+            </div>
+
+            <fieldset class="field">
+              <legend>Type de trajet</legend>
+              <div class="segmented">
+                <label><input type="radio" name="type_trajet" value="simple" checked><span>Aller simple</span></label>
+                <label><input type="radio" name="type_trajet" value="aller_retour"><span>Aller-retour</span></label>
+              </div>
+              <p class="hint" id="ar-hint" hidden></p>
+            </fieldset>
+
+            <div class="grid-2">
+              <div class="field">
+                <label for="motif">Motif <span class="req" aria-hidden="true">*</span></label>
+                <select id="motif" name="motif" required aria-describedby="motif-error">
+                  <option value="">Choisir…</option>
+                </select>
+                <p class="error" id="motif-error"></p>
+              </div>
+              <div class="field">
+                <label for="frequence">Fréquence</label>
+                <select id="frequence" name="frequence"></select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="commentaire">Commentaire <span class="optional">(facultatif)</span></label>
+              <textarea id="commentaire" name="commentaire" rows="3" maxlength="500"
+                        aria-describedby="commentaire-count commentaire-error"></textarea>
+              <p class="hint counter" id="commentaire-count">0 / 500</p>
+              <p class="error" id="commentaire-error"></p>
+            </div>
+
+            <p class="co2-inline" id="co2-inline" aria-live="polite"></p>
+          </section>
+
+          <!-- ---------- Étape 3 : récapitulatif ---------- -->
+          <section class="step" data-step="3" aria-labelledby="step3-title">
+            <h2 id="step3-title" tabindex="-1"><span class="step-num" aria-hidden="true">3</span> Récapitulatif</h2>
+
+            <div class="co2-card" id="co2-card">
+              <span class="co2-label">Émissions estimées</span>
+              <strong class="co2-value" id="co2-value">—</strong>
+              <span class="co2-sub" id="co2-sub"></span>
+            </div>
+
+            <dl class="recap" id="recap"></dl>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btn-submit">
+              <span class="spinner spinner--light" aria-hidden="true" hidden></span>
+              <span class="btn-label">Envoyer le trajet</span>
+            </button>
+            <p class="hint center" id="queue-hint" hidden></p>
+          </section>
+
+          <!-- Navigation entre étapes (mobile uniquement) -->
+          <div class="step-nav" id="step-nav">
+            <button type="button" class="btn btn-ghost" id="btn-prev">Précédent</button>
+            <button type="button" class="btn btn-primary" id="btn-next">Suivant</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ Onglet « Mes trajets » ============ -->
+      <div id="view-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+        <h2 id="history-title" tabindex="-1">Mes trajets</h2>
+        <p class="hint">Trajets envoyés depuis cet appareil.</p>
+
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Cette semaine</span><strong id="stat-week-km">0 km</strong><span id="stat-week-co2">0 kg CO₂</span></div>
+          <div class="stat"><span class="stat-label">Ce mois-ci</span><strong id="stat-month-km">0 km</strong><span id="stat-month-co2">0 kg CO₂</span></div>
+        </div>
+
+        <div class="history-actions">
+          <button type="button" class="btn btn-primary" id="btn-export">
+            <span class="spinner spinner--light" aria-hidden="true" hidden></span>
+            <span class="btn-label">Exporter en Excel</span>
+          </button>
+          <button type="button" class="btn btn-ghost" id="btn-retry" hidden>Renvoyer les trajets en attente</button>
+        </div>
+
+        <ul class="history-list" id="history-list"></ul>
+        <p class="empty" id="history-empty">Aucun trajet pour l'instant. Vos trajets envoyés apparaîtront ici.</p>
+      </div>
+    </main>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <noscript><p class="banner">Ce site nécessite JavaScript pour fonctionner.</p></noscript>
+</body>
+</html>
